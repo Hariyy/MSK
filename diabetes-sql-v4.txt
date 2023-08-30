@@ -1,0 +1,1451 @@
+******************************************************************
+Create base table with Person Identifiers and label column
+******************************************************************
+----------------------------------------------------------------------------------
+Rows- 664,653
+Yes- 57,644
+No- 607,009
+----------------------------------------------------------------------------------
+
+create table hap_ddr_raw.zz_obj_DS_HJ
+AS (
+SELECT c.partneremployerid
+,c.person_internal_id
+,c.person_key as patient_key
+,MAX(if(b.h1_rollup_description = 'Endocrine, nutritional and metabolic diseases, and immunity disorders'
+AND b.h4_rollup_description IN ('Diabetes mellitus','Secondary diabetes mellitus'),'Yes','No')) as ds_flag_Obj21
+FROM edh_analytic_solutions_db.compass_claim_raw_person_identifiers c
+JOIN edh_analytic_solutions_db.udp_person_idmapping idm
+ON c.person_internal_id = CAST(idm.platforminternalid AS INT)
+AND c.partneremployerid = CAST(idm.normalizedclientid AS INT)
+JOIN edh_analytic_solutions_db.participant_integrated ppt
+ON ppt.udp_global_id = idm.globalpersonidentifier
+AND ppt.client_id = CAST(idm.normalizedclientid AS INT)
+JOIN edh_analytic_solutions_db.compass_claims_raw_med_claim_rollup a
+ON a.patient_key = c.person_key
+AND a.partneremployerid = c.partneremployerid
+JOIN edh_analytic_solutions_db.compass_claims_raw_diagnosis b
+ON a.diagnosis_key = b.diagnosis_key
+WHERE a.start_date_key >= 20210101
+AND a.end_date_key <= 20211231
+GROUP BY 1,2,3);
+
+
+**********************
+****EDA FULL 2019*****
+******************************************************************
+********Costs Flag*********
+
+Total Rows-664653
+******************************************************************
+
+create table hap_ddr_raw.zz_obj_DS_partcost19_HJ
+AS (
+SELECT c.partneremployerid
+,c.person_internal_id
+,c.patient_key 
+,c.ds_flag_Obj21
+,SUM(a.amount_allowed) as tot_billed_amt_Yr_1 
+,AVG(a.amount_allowed) as avg_billed_amt_Yr_1 
+,STDDEV(a.amount_allowed) as std_billed_amt_Yr_1 
+,MAX(a.amount_allowed) as max_billed_amt_Yr_1 
+,SUM(a.amount_Plan) as  employer_paid_Yr_1 
+,SUM(a.amount_Employee_Copay) as employee_paid1_Yr_1 
+,SUM(a.amount_Employee_Coinsurance) as employee_paid2_Yr_1 
+,SUM(a.amount_Employee_Deductible) as paid_thr_deduct_Yr_1 
+FROM hap_ddr_raw.zz_obj_DS_HJ c
+LEFT JOIN hap_ddr_raw.compass_claims_rollup_2019 a
+ON a.patient_key = c.patient_key
+AND a.partneremployerid = c.partneremployerid
+GROUP BY 1,2,3,4);
+
+
+############################################################################################
+**********Endocrine, nutritional and metabolic diseases, and immunity disorders_ yr_1***********
+############################################################################################
+
+Total Rows-664653
+
+############################################################################################
+Create table hap_ddr_raw.zz_part1_f19_HJ
+AS (
+SELECT c.partneremployerid
+,c.person_internal_id
+,c.patient_key
+,c.ds_flag_Obj21
+,MAX(if(b.diagnosis_code in ('254', '2540', '2541', '2548', '2549'),'Yes','No')) as thymus_gland_Flag_Yr_1
+,MAX(if(b.diagnosis_code in ('255', '2551', '2554', '2550', '25510', '25511', '25512', '25513', '25514', '2552', 
+'2553', '25541', '25542', '2555', '2556', '2558', '2559'),'Yes','No')) as adrenal_glands_Flag_Yr_1
+,MAX(if(b.diagnosis_code in ('25200', '25201', '25202', '25208', '2521', '2528', '2529'),'Yes','No')) as parathyroid_gland_Flag_Yr_1
+,MAX(if(b.diagnosis_code in ('253', '2530', '2531', '2532', '2533', '2534', '2535', '2536', '2537', '2538', '2539'),'Yes','No')) as pituitary_gland_Flag_Yr_1
+,MAX(if(b.diagnosis_code in ('251', '2510', '2511', '2512', '2513', '2514', '2515', '2518', '2519'),'Yes','No')) as pancreatic_internal_secretion_Flag_Yr_1
+,MAX(if(b.diagnosis_code in ('2591', '259', '2595', '2590', '2592', '2593', '2594', '25950', '25951', '25952', '2598', '2599'),'Yes','No')) as endocrine_Flag_Yr_1
+,MAX(if(b.diagnosis_code in ('2560','2561','2562','25639','2564','2568','2569','256','2563','25631'),'Yes','No')) as Ovarian_dysfunction_Flag_Yr_1
+,MAX(if(b.diagnosis_code in ('25801', '25802', '25803', '2581', '2588', '2589'),'Yes','No')) as Polyglandular_dysfunction_Flag_Yr_1
+,MAX(if(b.diagnosis_code in ('2570', '2571', '2579', '257', '2572', '2578'),'Yes','No')) as Testicular_dysfunction_Flag_Yr_1
+FROM hap_ddr_raw.zz_obj_DS_HJ c
+LEFT JOIN hap_ddr_raw.compass_claims_rollup_2019 a
+ON a.partneremployerid = c.partneremployerid
+AND a.patient_key = c.patient_key
+LEFT JOIN edh_analytic_solutions_db.compass_claims_raw_diagnosis b
+ON a.diagnosis_key = b.diagnosis_key
+GROUP BY 1,2,3,4);
+
+
+##########################################################################################
+Total Rows - 664653
+
+##########################################################################################
+Create table hap_ddr_raw.zz_part2_f19_HJ
+AS (
+SELECT c.partneremployerid
+,c.person_internal_id
+,c.patient_key
+,c.ds_flag_Obj21
+,MAX(if(b.diagnosis_code in ('V1221', '64800', '64801', '64802', '64803', '64804'),'Yes','No')) as Gestational_Diabetes_Flag_Yr_1
+,MAX(if(b.diagnosis_code = 'V180','Yes','No')) as Family_History_of_Diabetes_Flag_Yr_1
+,MAX(if(b.diagnosis_code in ('4010', '4011', '4019', '40200', '40201', '40210', '40211', '40290', '40291', '40300', 
+'40301', '40310', '40311', '40390', '40391', '40400', '40401', '40402'),'Yes','No')) as High_Blood_Pressure_Flag_Yr_1
+,MAX(if(b.diagnosis_code = 'V690','Yes','No')) as Lack_of_Physical_Exercise_Flag_Yr_1
+,MAX(if(b.diagnosis_code in ('V8521', 'V8522', 'V8523', 'V8524', 'V8525', '27802', 'V8530', 'V8531', 'V8532', 
+'V8533', 'V8534', 'V8535', 'V8536', 'V8537', 'V8538', 'V8539', '27800', '27803', 'V8541', 'V8542', 'V8543', 
+'V8544', 'V8545', '27801'),'Yes','No')) as Overweight_or_Obesity_Flag_Yr_1
+,MAX(if(b.diagnosis_code in ('7884', '78843', '78842'),'Yes','No')) as Polyuria_Flag_Yr_1
+,MAX(if(b.diagnosis_code in ('7835'),'Yes','No')) as Polydipsia_Flag_Yr_1
+,MAX(if(b.diagnosis_code in ('78321', '7831'),'Yes','No')) as Sudden_Weight_Change_Flag_Yr_1
+,MAX(if(b.diagnosis_code in ('7836'),'Yes','No')) as Polyphagia_Flag_Yr_1
+,MAX(if(b.diagnosis_code in ('79922'),'Yes','No')) as Irritability_Flag_Yr_1
+,MAX(if(b.diagnosis_code in ('78079'),'Yes','No')) as Fatigue_Flag_Yr_1
+,MAX(if(b.diagnosis_code in ('3688'),'Yes','No')) as Blurred_Vision_Flag_Yr_1
+,MAX(if(b.diagnosis_code in ('7820', '78199'),'Yes','No')) as Numbness_Flag_Yr_1
+FROM hap_ddr_raw.zz_obj_DS_HJ c
+LEFT JOIN hap_ddr_raw.compass_claims_rollup_2019 a
+ON a.partneremployerid = c.partneremployerid
+AND a.patient_key = c.patient_key
+LEFT JOIN edh_analytic_solutions_db.compass_claims_raw_diagnosis b
+ON a.diagnosis_key = b.diagnosis_key
+GROUP BY 1,2,3,4);
+
+
+
+#################################################################################################
+*Stiching together health flags tables Yr_1
+Total Rows- 665097
+
+#################################################################################################
+
+Create table hap_ddr_raw.zz_eda_Yr_1_health_flags_HJ  
+AS (
+SELECT  c.person_internal_id
+,c.partneremployerid
+,c.patient_key
+,c.ds_flag_Obj21
+,a.thymus_gland_Flag_Yr_1
+,a.adrenal_glands_Flag_Yr_1
+,a.parathyroid_gland_Flag_Yr_1
+,a.pituitary_gland_Flag_Yr_1
+,a.pancreatic_internal_secretion_Flag_Yr_1
+,a.endocrine_Flag_Yr_1
+,a.Ovarian_dysfunction_Flag_Yr_1
+,a.Polyglandular_dysfunction_Flag_Yr_1
+,a.Testicular_dysfunction_Flag_Yr_1
+,b.Gestational_Diabetes_Flag_Yr_1
+,b.Family_History_of_Diabetes_Flag_Yr_1
+,b.High_Blood_Pressure_Flag_Yr_1
+,b.Lack_of_Physical_Exercise_Flag_Yr_1
+,b.Overweight_or_Obesity_Flag_Yr_1
+,b.Polyuria_Flag_Yr_1
+,b.Polydipsia_Flag_Yr_1
+,b.Sudden_Weight_Change_Flag_Yr_1
+,b.Polyphagia_Flag_Yr_1
+,b.Irritability_Flag_Yr_1
+,b.Fatigue_Flag_Yr_1
+,b.Blurred_Vision_Flag_Yr_1
+,b.Numbness_Flag_Yr_1
+FROM hap_ddr_raw.zz_obj_DS_HJ c
+JOIN hap_ddr_raw.zz_part1_f19_HJ a
+ON a.person_internal_id = c.person_internal_id
+AND a.partneremployerid = c.partneremployerid
+JOIN hap_ddr_raw.zz_part2_f19_HJ b
+ON b.person_internal_id = c.person_internal_id
+AND b.partneremployerid = c.partneremployerid
+);
+
+
+
+
+
+
+**********************
+****EDA FULL 2020*****
+******************************************************************
+********Costs & Flags *Preventive Codes* *Diagnosis Codes*********
+******************************************************************
+Total Rows - 664653
+*****************************************
+
+create table hap_ddr_raw.zz_obj_DS_partcost20_HJ
+AS (
+SELECT c.partneremployerid
+,c.person_internal_id
+,c.patient_key 
+,SUM(a.amount_allowed) as tot_billed_amt_Yr_0 
+,AVG(a.amount_allowed) as avg_billed_amt_Yr_0 
+,STDDEV(a.amount_allowed) as std_billed_amt_Yr_0 
+,MAX(a.amount_allowed) as max_billed_amt_Yr_0 
+,SUM(a.amount_Plan) as  employer_paid_Yr_0 
+,SUM(a.amount_Employee_Copay) as employee_paid1_Yr_0
+,SUM(a.amount_Employee_Coinsurance) as employee_paid2_Yr_0
+,SUM(a.amount_Employee_Deductible) as paid_thr_deduct_Yr_0 
+FROM hap_ddr_raw.zz_obj_DS_HJ c
+LEFT JOIN hap_ddr_raw.compass_claims_rollup_2020 a
+ON a.patient_key = c.patient_key
+AND a.partneremployerid = c.partneremployerid
+GROUP BY 1,2,3);
+
+
+
+
+############################################################################################
+**********Endocrine, nutritional and metabolic diseases, and immunity disorders _ yr_0***********
+
+
+############################################################################################
+Total Rows - 664653
+############################################################################################
+Create table hap_ddr_raw.zz_part1_f20_HJ
+AS (
+SELECT c.partneremployerid
+,c.person_internal_id
+,c.patient_key
+,c.ds_flag_Obj21
+,MAX(if(b.diagnosis_code in ('254', '2540', '2541', '2548', '2549'),'Yes','No')) as thymus_gland_Flag_Yr_0
+,MAX(if(b.diagnosis_code in ('255', '2551', '2554', '2550', '25510', '25511', '25512', '25513', '25514', '2552', 
+'2553', '25541', '25542', '2555', '2556', '2558', '2559'),'Yes','No')) as adrenal_glands_Flag_Yr_0
+,MAX(if(b.diagnosis_code in ('25200', '25201', '25202', '25208', '2521', '2528', '2529'),'Yes','No')) as parathyroid_gland_Flag_Yr_0
+,MAX(if(b.diagnosis_code in ('253', '2530', '2531', '2532', '2533', '2534', '2535', '2536', '2537', '2538', '2539'),'Yes','No')) as pituitary_gland_Flag_Yr_0
+,MAX(if(b.diagnosis_code in ('251', '2510', '2511', '2512', '2513', '2514', '2515', '2518', '2519'),'Yes','No')) as pancreatic_internal_secretion_Flag_Yr_0
+,MAX(if(b.diagnosis_code in ('2591', '259', '2595', '2590', '2592', '2593', '2594', '25950', '25951', '25952', '2598', '2599'),'Yes','No')) as endocrine_Flag_Yr_0
+,MAX(if(b.diagnosis_code in ('2560','2561','2562','25639','2564','2568','2569','256','2563','25631'),'Yes','No')) as Ovarian_dysfunction_Flag_Yr_0
+,MAX(if(b.diagnosis_code in ('25801', '25802', '25803', '2581', '2588', '2589'),'Yes','No')) as Polyglandular_dysfunction_Flag_Yr_0
+,MAX(if(b.diagnosis_code in ('2570', '2571', '2579', '257', '2572', '2578'),'Yes','No')) as Testicular_dysfunction_Flag_Yr_0
+FROM hap_ddr_raw.zz_obj_DS_HJ c
+LEFT JOIN hap_ddr_raw.compass_claims_rollup_2020 a
+ON a.partneremployerid = c.partneremployerid
+AND a.patient_key = c.patient_key
+LEFT JOIN edh_analytic_solutions_db.compass_claims_raw_diagnosis b
+ON a.diagnosis_key = b.diagnosis_key
+GROUP BY 1,2,3,4);
+
+
+################################################################################################
+Total Rows - 664653
+################################################################################################
+Create table hap_ddr_raw.zz_part2_f20_HJ
+AS (
+SELECT c.partneremployerid
+,c.person_internal_id
+,c.patient_key
+,c.ds_flag_Obj21
+,MAX(if(b.diagnosis_code in ('V1221', '64800', '64801', '64802', '64803', '64804'),'Yes','No')) as Gestational_Diabetes_Flag_Yr_0
+,MAX(if(b.diagnosis_code = 'V180','Yes','No')) as Family_History_of_Diabetes_Flag_Yr_0
+,MAX(if(b.diagnosis_code in ('4010', '4011', '4019', '40200', '40201', '40210', '40211', '40290', '40291', '40300', 
+'40301', '40310', '40311', '40390', '40391', '40400', '40401', '40402'),'Yes','No')) as High_Blood_Pressure_Flag_Yr_0
+,MAX(if(b.diagnosis_code = 'V690','Yes','No')) as Lack_of_Physical_Exercise_Flag_Yr_0
+,MAX(if(b.diagnosis_code in ('V8521', 'V8522', 'V8523', 'V8524', 'V8525', '27802', 'V8530', 'V8531', 'V8532', 
+'V8533', 'V8534', 'V8535', 'V8536', 'V8537', 'V8538', 'V8539', '27800', '27803', 'V8541', 'V8542', 'V8543', 
+'V8544', 'V8545', '27801'),'Yes','No')) as Overweight_or_Obesity_Flag_Yr_0
+,MAX(if(b.diagnosis_code in ('7884', '78843', '78842'),'Yes','No')) as Polyuria_Flag_Yr_0
+,MAX(if(b.diagnosis_code in ('7835'),'Yes','No')) as Polydipsia_Flag_Yr_0
+,MAX(if(b.diagnosis_code in ('78321', '7831'),'Yes','No')) as Sudden_Weight_Change_Flag_Yr_0
+,MAX(if(b.diagnosis_code in ('7836'),'Yes','No')) as Polyphagia_Flag_Yr_0
+,MAX(if(b.diagnosis_code in ('79922'),'Yes','No')) as Irritability_Flag_Yr_0
+,MAX(if(b.diagnosis_code in ('78079'),'Yes','No')) as Fatigue_Flag_Yr_0
+,MAX(if(b.diagnosis_code in ('3688'),'Yes','No')) as Blurred_Vision_Flag_Yr_0
+,MAX(if(b.diagnosis_code in ('7820', '78199'),'Yes','No')) as Numbness_Flag_Yr_0
+FROM hap_ddr_raw.zz_obj_DS_HJ c
+LEFT JOIN hap_ddr_raw.compass_claims_rollup_2020 a
+ON a.partneremployerid = c.partneremployerid
+AND a.patient_key = c.patient_key
+LEFT JOIN edh_analytic_solutions_db.compass_claims_raw_diagnosis b
+ON a.diagnosis_key = b.diagnosis_key
+GROUP BY 1,2,3,4);
+
+
+
+#################################################################################################
+*Stiching together health flags tables Yr_0
+Total Rows- 665097
+#################################################################################################
+
+Create table hap_ddr_raw.zz_eda_Yr_0_health_flags_HJ  
+AS (
+SELECT  c.person_internal_id
+,c.partneremployerid
+,c.patient_key
+,c.ds_flag_Obj21
+,a.thymus_gland_Flag_Yr_0
+,a.adrenal_glands_Flag_Yr_0
+,a.parathyroid_gland_Flag_Yr_0
+,a.pituitary_gland_Flag_Yr_0
+,a.pancreatic_internal_secretion_Flag_Yr_0
+,a.endocrine_Flag_Yr_0
+,a.Ovarian_dysfunction_Flag_Yr_0
+,a.Polyglandular_dysfunction_Flag_Yr_0
+,a.Testicular_dysfunction_Flag_Yr_0
+,b.Gestational_Diabetes_Flag_Yr_0
+,b.Family_History_of_Diabetes_Flag_Yr_0
+,b.High_Blood_Pressure_Flag_Yr_0
+,b.Lack_of_Physical_Exercise_Flag_Yr_0
+,b.Overweight_or_Obesity_Flag_Yr_0
+,b.Polyuria_Flag_Yr_0
+,b.Polydipsia_Flag_Yr_0
+,b.Sudden_Weight_Change_Flag_Yr_0
+,b.Polyphagia_Flag_Yr_0
+,b.Irritability_Flag_Yr_0
+,b.Fatigue_Flag_Yr_0
+,b.Blurred_Vision_Flag_Yr_0
+,b.Numbness_Flag_Yr_0
+FROM hap_ddr_raw.zz_obj_DS_HJ c
+JOIN hap_ddr_raw.zz_part1_f20_HJ a
+ON a.person_internal_id = c.person_internal_id
+AND a.partneremployerid = c.partneremployerid
+JOIN hap_ddr_raw.zz_part2_f20_HJ b
+ON b.person_internal_id = c.person_internal_id
+AND b.partneremployerid = c.partneremployerid
+);
+
+
+**********************
+****EDA FULL 2021*****
+******************************************************************
+********Costs & Flags *Preventive Codes* *Diagnosis Codes*********
+******************************************************************
+Total Rows -- 664653
+******************************************************
+create table hap_ddr_raw.zz_obj_DS_partcost21_HJ
+AS (
+SELECT c.partneremployerid
+,c.person_internal_id
+,c.patient_key 
+,SUM(a.amount_allowed) as tot_billed_amt_Yr 
+,AVG(a.amount_allowed) as avg_billed_amt_Yr 
+,STDDEV(a.amount_allowed) as std_billed_amt_Yr 
+,MAX(a.amount_allowed) as max_billed_amt_Yr 
+,SUM(a.amount_Plan) as  employer_paid_Yr 
+,SUM(a.amount_Employee_Copay) as employee_paid1_Yr
+,SUM(a.amount_Employee_Coinsurance) as employee_paid2_Yr
+,SUM(a.amount_Employee_Deductible) as paid_thr_deduct_Yr 
+FROM hap_ddr_raw.zz_obj_DS_HJ c
+LEFT JOIN hap_ddr_raw.compass_claims_rollup_2021 a
+ON a.patient_key = c.patient_key
+AND a.partneremployerid = c.partneremployerid
+GROUP BY 1,2,3);
+
+
+############################################################################################
+**********Endocrine, nutritional and metabolic diseases, and immunity disorders _ yr***********
+
+Total Rows - 664653
+############################################################################################
+Create table hap_ddr_raw.zz_part1_f21_HJ
+AS (
+SELECT c.partneremployerid
+,c.person_internal_id
+,c.patient_key
+,c.ds_flag_Obj21
+,MAX(if(b.diagnosis_code in ('254', '2540', '2541', '2548', '2549'),'Yes','No')) as thymus_gland_Flag_Yr
+,MAX(if(b.diagnosis_code in ('255', '2551', '2554', '2550', '25510', '25511', '25512', '25513', '25514', '2552', 
+'2553', '25541', '25542', '2555', '2556', '2558', '2559'),'Yes','No')) as adrenal_glands_Flag_Yr
+,MAX(if(b.diagnosis_code in ('25210', '25211', '25212', '25218', '2521', '2528', '2529'),'Yes','No')) as parathyroid_gland_Flag_Yr
+,MAX(if(b.diagnosis_code in ('253', '2530', '2531', '2532', '2533', '2534', '2535', '2536', '2537', '2538', '2539'),'Yes','No')) as pituitary_gland_Flag_Yr
+,MAX(if(b.diagnosis_code in ('251', '2510', '2511', '2512', '2513', '2514', '2515', '2518', '2519'),'Yes','No')) as pancreatic_internal_secretion_Flag_Yr
+,MAX(if(b.diagnosis_code in ('2591', '259', '2595', '2590', '2592', '2593', '2594', '25950', '25951', '25952', '2598', '2599'),'Yes','No')) as endocrine_Flag_Yr
+,MAX(if(b.diagnosis_code in ('2560','2561','2562','25639','2564','2568','2569','256','2563','25631'),'Yes','No')) as Ovarian_dysfunction_Flag_Yr
+,MAX(if(b.diagnosis_code in ('25801', '25802', '25803', '2581', '2588', '2589'),'Yes','No')) as Polyglandular_dysfunction_Flag_Yr
+,MAX(if(b.diagnosis_code in ('2570', '2571', '2579', '257', '2572', '2578'),'Yes','No')) as Testicular_dysfunction_Flag_Yr
+FROM hap_ddr_raw.zz_obj_DS_HJ c
+LEFT JOIN hap_ddr_raw.compass_claims_rollup_2021 a
+ON a.partneremployerid = c.partneremployerid
+AND a.patient_key = c.patient_key
+LEFT JOIN edh_analytic_solutions_db.compass_claims_raw_diagnosis b
+ON a.diagnosis_key = b.diagnosis_key
+GROUP BY 1,2,3,4);
+
+################################################################################################
+Total rows - 664653
+#################################################################################################
+Create table hap_ddr_raw.zz_part2_f21_HJ
+AS (
+SELECT c.partneremployerid
+,c.person_internal_id
+,c.patient_key
+,c.ds_flag_Obj21
+,MAX(if(b.diagnosis_code in ('V1221', '64800', '64801', '64802', '64803', '64804'),'Yes','No')) as Gestational_Diabetes_Flag_Yr
+,MAX(if(b.diagnosis_code = 'V180','Yes','No')) as Family_History_of_Diabetes_Flag_Yr
+,MAX(if(b.diagnosis_code in ('4010', '4011', '4019', '40210', '40211', '40210', '40211', '40290', '40291', '40300', 
+'40301', '40310', '40311', '40390', '40391', '40400', '40401', '40402'),'Yes','No')) as High_Blood_Pressure_Flag_Yr
+,MAX(if(b.diagnosis_code = 'V690','Yes','No')) as Lack_of_Physical_Exercise_Flag_Yr
+,MAX(if(b.diagnosis_code in ('V8521', 'V8522', 'V8523', 'V8524', 'V8525', '27802', 'V8530', 'V8531', 'V8532', 
+'V8533', 'V8534', 'V8535', 'V8536', 'V8537', 'V8538', 'V8539', '27800', '27803', 'V8541', 'V8542', 'V8543', 
+'V8544', 'V8545', '27801'),'Yes','No')) as Overweight_or_Obesity_Flag_Yr
+,MAX(if(b.diagnosis_code in ('7884', '78843', '78842'),'Yes','No')) as Polyuria_Flag_Yr
+,MAX(if(b.diagnosis_code in ('7835'),'Yes','No')) as Polydipsia_Flag_Yr
+,MAX(if(b.diagnosis_code in ('78321', '7831'),'Yes','No')) as Sudden_Weight_Change_Flag_Yr
+,MAX(if(b.diagnosis_code in ('7836'),'Yes','No')) as Polyphagia_Flag_Yr
+,MAX(if(b.diagnosis_code in ('79922'),'Yes','No')) as Irritability_Flag_Yr
+,MAX(if(b.diagnosis_code in ('78079'),'Yes','No')) as Fatigue_Flag_Yr
+,MAX(if(b.diagnosis_code in ('3688'),'Yes','No')) as Blurred_Vision_Flag_Yr
+,MAX(if(b.diagnosis_code in ('7820', '78199'),'Yes','No')) as Numbness_Flag_Yr
+FROM hap_ddr_raw.zz_obj_DS_HJ c
+LEFT JOIN hap_ddr_raw.compass_claims_rollup_2021 a
+ON a.partneremployerid = c.partneremployerid
+AND a.patient_key = c.patient_key
+LEFT JOIN edh_analytic_solutions_db.compass_claims_raw_diagnosis b
+ON a.diagnosis_key = b.diagnosis_key
+GROUP BY 1,2,3,4);
+
+
+
+#################################################################################################
+*Stiching together health flags tables Yr
+Total Rows- 665097
+#################################################################################################
+
+Create table hap_ddr_raw.zz_eda_Yr_health_flags_HJ  
+AS (
+SELECT  c.person_internal_id
+,c.partneremployerid
+,c.patient_key
+,c.ds_flag_Obj21
+,a.thymus_gland_Flag_Yr
+,a.adrenal_glands_Flag_Yr
+,a.parathyroid_gland_Flag_Yr
+,a.pituitary_gland_Flag_Yr
+,a.pancreatic_internal_secretion_Flag_Yr
+,a.endocrine_Flag_Yr
+,a.Ovarian_dysfunction_Flag_Yr
+,a.Polyglandular_dysfunction_Flag_Yr
+,a.Testicular_dysfunction_Flag_Yr
+,b.Gestational_Diabetes_Flag_Yr
+,b.Family_History_of_Diabetes_Flag_Yr
+,b.High_Blood_Pressure_Flag_Yr
+,b.Lack_of_Physical_Exercise_Flag_Yr
+,b.Overweight_or_Obesity_Flag_Yr
+,b.Polyuria_Flag_Yr
+,b.Polydipsia_Flag_Yr
+,b.Sudden_Weight_Change_Flag_Yr
+,b.Polyphagia_Flag_Yr
+,b.Irritability_Flag_Yr
+,b.Fatigue_Flag_Yr
+,b.Blurred_Vision_Flag_Yr
+,b.Numbness_Flag_Yr
+FROM hap_ddr_raw.zz_obj_DS_HJ c
+JOIN hap_ddr_raw.zz_part1_f21_HJ a
+ON a.person_internal_id = c.person_internal_id
+AND a.partneremployerid = c.partneremployerid
+JOIN hap_ddr_raw.zz_part2_f21_HJ b
+ON b.person_internal_id = c.person_internal_id
+AND b.partneremployerid = c.partneremployerid
+);
+
+
+
+############################################################################################################################
+*Stiching together Yr Yr_0 & Yr_1 partcosts tables - Total rows - 664653
+############################################################################################################################
+
+Create table hap_ddr_raw.zz_eda_part1_final_costYr1_Yr0_Yr_HJ
+AS (
+SELECT c.person_internal_id
+,c.partneremployerid
+,c.patient_key
+,ISNULL(a.tot_billed_amt_Yr_0,0) as tot_billed_amt_Yr_0
+,ISNULL(a.avg_billed_amt_Yr_0,0) as avg_billed_amt_Yr_0
+,ISNULL(a.std_billed_amt_Yr_0,0) as std_billed_amt_Yr_0
+,ISNULL(a.max_billed_amt_Yr_0,0) as max_billed_amt_Yr_0
+,ISNULL(a.employer_paid_Yr_0,0) as employer_paid_Yr_0
+,ISNULL(a.employee_paid1_Yr_0,0) as employee_paid1_Yr_0
+,ISNULL(a.employee_paid2_Yr_0,0) as employee_paid2_Yr_0
+,ISNULL(a.paid_thr_deduct_Yr_0,0) as paid_thr_deduct_Yr_0
+,ISNULL(d.tot_billed_amt_Yr,0) as tot_billed_amt_Yr
+,ISNULL(d.avg_billed_amt_Yr,0) as avg_billed_amt_Yr
+,ISNULL(d.std_billed_amt_Yr,0) as std_billed_amt_Yr
+,ISNULL(d.max_billed_amt_Yr,0) as max_billed_amt_Yr
+,ISNULL(d.employer_paid_Yr,0) as employer_paid_Yr
+,ISNULL(d.employee_paid1_Yr,0) as employee_paid1_Yr
+,ISNULL(d.employee_paid2_Yr,0) as employee_paid2_Yr
+,ISNULL(d.paid_thr_deduct_Yr,0) as paid_thr_deduct_Yr
+,ISNULL(b.tot_billed_amt_Yr_1,0) as tot_billed_amt_Yr_1
+,ISNULL(b.avg_billed_amt_Yr_1,0) as avg_billed_amt_Yr_1
+,ISNULL(b.std_billed_amt_Yr_1,0) as std_billed_amt_Yr_1
+,ISNULL(b.max_billed_amt_Yr_1,0) as max_billed_amt_Yr_1
+,ISNULL(b.employer_paid_Yr_1,0) as employer_paid_Yr_1
+,ISNULL(b.employee_paid1_Yr_1,0) as employee_paid1_Yr_1
+,ISNULL(b.employee_paid2_Yr_1,0) as employee_paid2_Yr_1
+,ISNULL(b.paid_thr_deduct_Yr_1,0) as paid_thr_deduct_Yr_1
+FROM hap_ddr_raw.zz_obj_DS_HJ c
+JOIN hap_ddr_raw.zz_obj_DS_partcost20_HJ a
+ON a.person_internal_id = c.person_internal_id
+AND a.partneremployerid = c.partneremployerid
+AND a.patient_key = c.patient_key
+JOIN hap_ddr_raw.zz_obj_DS_partcost19_HJ b
+ON b.person_internal_id = c.person_internal_id
+AND b.partneremployerid = c.partneremployerid
+AND b.patient_key = c.patient_key
+JOIN hap_ddr_raw.zz_obj_DS_partcost21_HJ d
+ON d.person_internal_id = c.person_internal_id
+AND d.partneremployerid = c.partneremployerid
+AND d.patient_key = c.patient_key
+);
+
+
+
+
+##############################################################################################################
+*Stiching together health flags tables Yr_0 & Yr_1 & Yr - Total rows - 675657
+##############################################################################################################
+
+Create table hap_ddr_raw.zz_eda_Yr_0_Yr_1_Yr_health_flags_HJ  
+AS (
+SELECT a.person_internal_id
+,a.partneremployerid
+,a.patient_key
+,a.ds_flag_Obj21
+,a.thymus_gland_Flag_Yr_1
+,a.adrenal_glands_Flag_Yr_1
+,a.parathyroid_gland_Flag_Yr_1
+,a.pituitary_gland_Flag_Yr_1
+,a.pancreatic_internal_secretion_Flag_Yr_1
+,a.endocrine_Flag_Yr_1
+,a.Ovarian_dysfunction_Flag_Yr_1
+,a.Polyglandular_dysfunction_Flag_Yr_1
+,a.Testicular_dysfunction_Flag_Yr_1
+,a.Gestational_Diabetes_Flag_Yr_1
+,a.Family_History_of_Diabetes_Flag_Yr_1
+,a.High_Blood_Pressure_Flag_Yr_1
+,a.Lack_of_Physical_Exercise_Flag_Yr_1
+,a.Overweight_or_Obesity_Flag_Yr_1
+,a.Polyuria_Flag_Yr_1
+,a.Polydipsia_Flag_Yr_1
+,a.Sudden_Weight_Change_Flag_Yr_1
+,a.Polyphagia_Flag_Yr_1
+,a.Irritability_Flag_Yr_1
+,a.Fatigue_Flag_Yr_1
+,a.Blurred_Vision_Flag_Yr_1
+,a.Numbness_Flag_Yr_1
+
+,b.thymus_gland_Flag_Yr_0
+,b.adrenal_glands_Flag_Yr_0
+,b.parathyroid_gland_Flag_Yr_0
+,b.pituitary_gland_Flag_Yr_0
+,b.pancreatic_internal_secretion_Flag_Yr_0
+,b.endocrine_Flag_Yr_0
+,b.Ovarian_dysfunction_Flag_Yr_0
+,b.Polyglandular_dysfunction_Flag_Yr_0
+,b.Testicular_dysfunction_Flag_Yr_0
+,b.Gestational_Diabetes_Flag_Yr_0
+,b.Family_History_of_Diabetes_Flag_Yr_0
+,b.High_Blood_Pressure_Flag_Yr_0
+,b.Lack_of_Physical_Exercise_Flag_Yr_0
+,b.Overweight_or_Obesity_Flag_Yr_0
+,b.Polyuria_Flag_Yr_0
+,b.Polydipsia_Flag_Yr_0
+,b.Sudden_Weight_Change_Flag_Yr_0
+,b.Polyphagia_Flag_Yr_0
+,b.Irritability_Flag_Yr_0
+,b.Fatigue_Flag_Yr_0
+,b.Blurred_Vision_Flag_Yr_0
+,b.Numbness_Flag_Yr_0
+
+
+,c.thymus_gland_Flag_Yr
+,c.adrenal_glands_Flag_Yr
+,c.parathyroid_gland_Flag_Yr
+,c.pituitary_gland_Flag_Yr
+,c.pancreatic_internal_secretion_Flag_Yr
+,c.endocrine_Flag_Yr
+,c.Ovarian_dysfunction_Flag_Yr
+,c.Polyglandular_dysfunction_Flag_Yr
+,c.Testicular_dysfunction_Flag_Yr
+,c.Gestational_Diabetes_Flag_Yr
+,c.Family_History_of_Diabetes_Flag_Yr
+,c.High_Blood_Pressure_Flag_Yr
+,c.Lack_of_Physical_Exercise_Flag_Yr
+,c.Overweight_or_Obesity_Flag_Yr
+,c.Polyuria_Flag_Yr
+,c.Polydipsia_Flag_Yr
+,c.Sudden_Weight_Change_Flag_Yr
+,c.Polyphagia_Flag_Yr
+,c.Irritability_Flag_Yr
+,c.Fatigue_Flag_Yr
+,c.Blurred_Vision_Flag_Yr
+,c.Numbness_Flag_Yr
+
+FROM hap_ddr_raw.zz_eda_Yr_1_health_flags_HJ a
+JOIN hap_ddr_raw.zz_eda_Yr_0_health_flags_HJ b
+ON a.person_internal_id = b.person_internal_id
+AND a.partneremployerid = b.partneremployerid
+AND a.patient_key = b.patient_key
+JOIN hap_ddr_raw.zz_eda_Yr_health_flags_HJ c
+ON c.person_internal_id = b.person_internal_id
+AND c.partneremployerid = b.partneremployerid
+AND c.patient_key = b.patient_key
+)
+;
+
+
+drop table hap_ddr_raw.zz_eda_Yr_0_health_flags_HJ
+drop table hap_ddr_raw.zz_eda_Yr_1_health_flags_HJ 
+drop table hap_ddr_raw.zz_eda_Yr_health_flags_HJ 
+###################################################################################################
+
+Create table hap_ddr_raw.zz_eda_part4_visit_HJ
+AS (
+SELECT c.person_internal_id
+,c.partneremployerid
+,c.patient_key
+,c.ds_flag_Obj21
+,b.proc_category_description
+,COUNT(c.patient_key) as counter
+FROM hap_ddr_raw.zz_obj_DS_HJ c
+JOIN  hap_ddr_raw.compass_claims_rollup_2021 a
+ON c.partneremployerid = a.partneremployerid
+AND c.patient_key = a.patient_key 
+JOIN edh_analytic_solutions_db.compass_claims_raw_procedure_category b
+ON a.proc_category_code = b.proc_category_code
+GROUP BY 1,2,3,4,5
+)
+;
+Create table hap_ddr_raw.zz_eda_part4_visit_y1_HJ
+AS (
+SELECT c.person_internal_id
+,c.partneremployerid
+,c.patient_key
+,c.ds_flag_Obj21
+,b.proc_category_description
+,COUNT(c.patient_key) as counter
+FROM hap_ddr_raw.zz_obj_DS_HJ c
+JOIN  hap_ddr_raw.compass_claims_rollup_2019 a
+ON c.partneremployerid = a.partneremployerid
+AND c.patient_key = a.patient_key 
+JOIN edh_analytic_solutions_db.compass_claims_raw_procedure_category b
+ON a.proc_category_code = b.proc_category_code
+GROUP BY 1,2,3,4,5
+)
+;
+Create table hap_ddr_raw.zz_eda_part4_visit_y0_HJ
+AS (
+SELECT c.person_internal_id
+,c.partneremployerid
+,c.patient_key
+,c.ds_flag_Obj21
+,b.proc_category_description
+,COUNT(c.patient_key) as counter
+FROM hap_ddr_raw.zz_obj_DS_HJ c
+JOIN  hap_ddr_raw.compass_claims_rollup_2020 a
+ON c.partneremployerid = a.partneremployerid
+AND c.patient_key = a.patient_key 
+JOIN edh_analytic_solutions_db.compass_claims_raw_procedure_category b
+ON a.proc_category_code = b.proc_category_code
+GROUP BY 1,2,3,4,5
+)
+;
+Create table hap_ddr_raw.zz_eda_vist_p1_HJ
+AS (
+SELECT c.person_internal_id
+,c.partneremployerid
+,c.patient_key
+,c.ds_flag_Obj21
+,counter as 'Global_imaging_vist'
+FROM hap_ddr_raw.zz_eda_part4_visit_HJ c
+WHERE proc_category_description = 'Global - Imaging'
+)
+;
+Create table hap_ddr_raw.zz_eda_vist_p2_HJ
+AS (
+SELECT c.person_internal_id
+,c.partneremployerid
+,c.patient_key
+,c.ds_flag_Obj21
+,counter as 'Specialist_vist'
+FROM hap_ddr_raw.zz_eda_part4_visit_HJ c
+WHERE proc_category_description = 'Physician - Specialist'
+)
+;
+Create table hap_ddr_raw.zz_eda_vist_p3_HJ
+AS (
+SELECT c.person_internal_id
+,c.partneremployerid
+,c.patient_key
+,c.ds_flag_Obj21
+,counter as 'Facility_imaging_vist'
+FROM hap_ddr_raw.zz_eda_part4_visit_HJ c
+WHERE proc_category_description = 'Facility - Imaging'
+)
+;
+Create table hap_ddr_raw.zz_eda_vist_p4_HJ
+AS (
+SELECT c.person_internal_id
+,c.partneremployerid
+,c.patient_key
+,c.ds_flag_Obj21
+,counter as 'Primary_care_vist'
+FROM hap_ddr_raw.zz_eda_part4_visit_HJ c
+WHERE proc_category_description = 'Physician - Primary Care'
+)
+;
+Create table hap_ddr_raw.zz_eda_vist_p5_HJ
+AS (
+SELECT c.person_internal_id
+,c.partneremployerid
+,c.patient_key
+,c.ds_flag_Obj21
+,counter as 'Physician_imaging_vist'
+FROM hap_ddr_raw.zz_eda_part4_visit_HJ c
+WHERE proc_category_description = 'Physician - Imaging'
+)
+;
+Create table hap_ddr_raw.zz_eda_vist_p6_HJ
+AS (
+SELECT c.person_internal_id
+,c.partneremployerid
+,c.patient_key
+,c.ds_flag_Obj21
+,counter as 'Inpatient_vist'
+FROM hap_ddr_raw.zz_eda_part4_visit_HJ c
+WHERE proc_category_description = 'Facility - Inpatient'
+)
+;
+Create table hap_ddr_raw.zz_eda_vist_p7_HJ
+AS (
+SELECT c.person_internal_id
+,c.partneremployerid
+,c.patient_key
+,c.ds_flag_Obj21
+,counter as 'Physician_vist'
+FROM hap_ddr_raw.zz_eda_part4_visit_HJ c
+WHERE proc_category_description = 'Physician'
+)
+
+;
+Create table hap_ddr_raw.zz_eda_vist_p8_HJ
+AS (
+SELECT c.person_internal_id
+,c.partneremployerid
+,c.patient_key
+,c.ds_flag_Obj21
+,counter as 'Outpatien_vist'
+FROM hap_ddr_raw.zz_eda_part4_visit_HJ c
+WHERE proc_category_description = 'Facility - Outpatient'
+)
+;
+Create table hap_ddr_raw.zz_eda_vist_p9_HJ
+AS (
+SELECT c.person_internal_id
+,c.partneremployerid
+,c.patient_key
+,c.ds_flag_Obj21
+,counter as 'Unknown_visit'
+FROM hap_ddr_raw.zz_eda_part4_visit_HJ c
+WHERE proc_category_description = 'Unknown'
+)
+;
+Create table hap_ddr_raw.zz_eda_vist_p10_HJ
+AS (
+SELECT c.person_internal_id
+,c.partneremployerid
+,c.patient_key
+,c.ds_flag_Obj21
+,counter as 'Durable_medical_visit'
+FROM hap_ddr_raw.zz_eda_part4_visit_HJ c
+WHERE proc_category_description = 'Durable Medical Equipment'
+)
+;
+Create table hap_ddr_raw.zz_eda_vist_p11_HJ
+AS (
+SELECT c.person_internal_id
+,c.partneremployerid
+,c.patient_key
+,c.ds_flag_Obj21
+,counter as 'Lab_visit'
+FROM hap_ddr_raw.zz_eda_part4_visit_HJ c
+WHERE proc_category_description = 'Lab'
+)
+;
+
+Create table hap_ddr_raw.zz_eda_vist_p1_y0_HJ
+AS (
+SELECT c.person_internal_id
+,c.partneremployerid
+,c.patient_key
+,c.ds_flag_Obj21
+,counter as 'Global_imaging_vist'
+FROM hap_ddr_raw.zz_eda_part4_visit_y0_HJ c
+WHERE proc_category_description = 'Global - Imaging'
+)
+;
+Create table hap_ddr_raw.zz_eda_vist_p2_y0_HJ
+AS (
+SELECT c.person_internal_id
+,c.partneremployerid
+,c.patient_key
+,c.ds_flag_Obj21
+,counter as 'Specialist_vist'
+FROM hap_ddr_raw.zz_eda_part4_visit_y0_HJ c
+WHERE proc_category_description = 'Physician - Specialist'
+)
+;
+Create table hap_ddr_raw.zz_eda_vist_p3_y0_HJ
+AS (
+SELECT c.person_internal_id
+,c.partneremployerid
+,c.patient_key
+,c.ds_flag_Obj21
+,counter as 'Facility_imaging_vist'
+FROM hap_ddr_raw.zz_eda_part4_visit_y0_HJ c
+WHERE proc_category_description = 'Facility - Imaging'
+)
+;
+Create table hap_ddr_raw.zz_eda_vist_p4_y0_HJ
+AS (
+SELECT c.person_internal_id
+,c.partneremployerid
+,c.patient_key
+,c.ds_flag_Obj21
+,counter as 'Primary_care_vist'
+FROM hap_ddr_raw.zz_eda_part4_visit_y0_HJ c
+WHERE proc_category_description = 'Physician - Primary Care'
+)
+;
+Create table hap_ddr_raw.zz_eda_vist_p5_y0_HJ
+AS (
+SELECT c.person_internal_id
+,c.partneremployerid
+,c.patient_key
+,c.ds_flag_Obj21
+,counter as 'Physician_imaging_vist'
+FROM hap_ddr_raw.zz_eda_part4_visit_y0_HJ c
+WHERE proc_category_description = 'Physician - Imaging'
+)
+;
+Create table hap_ddr_raw.zz_eda_vist_p6_y0_HJ
+AS (
+SELECT c.person_internal_id
+,c.partneremployerid
+,c.patient_key
+,c.ds_flag_Obj21
+,counter as 'Inpatient_vist'
+FROM hap_ddr_raw.zz_eda_part4_visit_y0_HJ c
+WHERE proc_category_description = 'Facility - Inpatient'
+)
+;
+Create table hap_ddr_raw.zz_eda_vist_p7_y0_HJ
+AS (
+SELECT c.person_internal_id
+,c.partneremployerid
+,c.patient_key
+,c.ds_flag_Obj21
+,counter as 'Physician_vist'
+FROM hap_ddr_raw.zz_eda_part4_visit_y0_HJ c
+WHERE proc_category_description = 'Physician'
+)
+;
+Create table hap_ddr_raw.zz_eda_vist_p8_y0_HJ
+AS (
+SELECT c.person_internal_id
+,c.partneremployerid
+,c.patient_key
+,c.ds_flag_Obj21
+,counter as 'Outpatien_vist'
+FROM hap_ddr_raw.zz_eda_part4_visit_y0_HJ c
+WHERE proc_category_description = 'Facility - Outpatient'
+)
+;
+Create table hap_ddr_raw.zz_eda_vist_p9_y0_HJ
+AS (
+SELECT c.person_internal_id
+,c.partneremployerid
+,c.patient_key
+,c.ds_flag_Obj21
+,counter as 'Unknown_visit'
+FROM hap_ddr_raw.zz_eda_part4_visit_y0_HJ c
+WHERE proc_category_description = 'Unknown'
+)
+;
+Create table hap_ddr_raw.zz_eda_vist_p10_y0_HJ
+AS (
+SELECT c.person_internal_id
+,c.partneremployerid
+,c.patient_key
+,c.ds_flag_Obj21
+,counter as 'Durable_medical_visit'
+FROM hap_ddr_raw.zz_eda_part4_visit_y0_HJ c
+WHERE proc_category_description = 'Durable Medical Equipment'
+)
+;
+Create table hap_ddr_raw.zz_eda_vist_p11_y0_HJ
+AS (
+SELECT c.person_internal_id
+,c.partneremployerid
+,c.patient_key
+,c.ds_flag_Obj21
+,counter as 'Lab_visit'
+FROM hap_ddr_raw.zz_eda_part4_visit_y0_HJ c
+WHERE proc_category_description = 'Lab'
+)
+;
+Create table hap_ddr_raw.zz_eda_vist_p1_y1_HJ
+AS (
+SELECT c.person_internal_id
+,c.partneremployerid
+,c.patient_key
+,c.ds_flag_Obj21
+,counter as 'Global_imaging_vist'
+FROM hap_ddr_raw.zz_eda_part4_visit_y1_HJ c
+WHERE proc_category_description = 'Global - Imaging'
+)
+;
+Create table hap_ddr_raw.zz_eda_vist_p2_y1_HJ
+AS (
+SELECT c.person_internal_id
+,c.partneremployerid
+,c.patient_key
+,c.ds_flag_Obj21
+,counter as 'Specialist_vist'
+FROM hap_ddr_raw.zz_eda_part4_visit_y1_HJ c
+WHERE proc_category_description = 'Physician - Specialist'
+)
+;
+Create table hap_ddr_raw.zz_eda_vist_p3_y1_HJ
+AS (
+SELECT c.person_internal_id
+,c.partneremployerid
+,c.patient_key
+,c.ds_flag_Obj21
+,counter as 'Facility_imaging_vist'
+FROM hap_ddr_raw.zz_eda_part4_visit_y1_HJ c
+WHERE proc_category_description = 'Facility - Imaging'
+)
+;
+Create table hap_ddr_raw.zz_eda_vist_p4_y1_HJ
+AS (
+SELECT c.person_internal_id
+,c.partneremployerid
+,c.patient_key
+,c.ds_flag_Obj21
+,counter as 'Primary_care_vist'
+FROM hap_ddr_raw.zz_eda_part4_visit_y1_HJ c
+WHERE proc_category_description = 'Physician - Primary Care'
+)
+;
+Create table hap_ddr_raw.zz_eda_vist_p5_y1_HJ
+AS (
+SELECT c.person_internal_id
+,c.partneremployerid
+,c.patient_key
+,c.ds_flag_Obj21
+,counter as 'Physician_imaging_vist'
+FROM hap_ddr_raw.zz_eda_part4_visit_y1_HJ c
+WHERE proc_category_description = 'Physician - Imaging'
+)
+;
+Create table hap_ddr_raw.zz_eda_vist_p6_y1_HJ
+AS (
+SELECT c.person_internal_id
+,c.partneremployerid
+,c.patient_key
+,c.ds_flag_Obj21
+,counter as 'Inpatient_vist'
+FROM hap_ddr_raw.zz_eda_part4_visit_y1_HJ c
+WHERE proc_category_description = 'Facility - Inpatient'
+)
+;
+Create table hap_ddr_raw.zz_eda_vist_p7_y1_HJ
+AS (
+SELECT c.person_internal_id
+,c.partneremployerid
+,c.patient_key
+,c.ds_flag_Obj21
+,counter as 'Physician_vist'
+FROM hap_ddr_raw.zz_eda_part4_visit_y1_HJ c
+WHERE proc_category_description = 'Physician'
+)
+;
+Create table hap_ddr_raw.zz_eda_vist_p8_y1_HJ
+AS (
+SELECT c.person_internal_id
+,c.partneremployerid
+,c.patient_key
+,c.ds_flag_Obj21
+,counter as 'Outpatien_vist'
+FROM hap_ddr_raw.zz_eda_part4_visit_y1_HJ c
+WHERE proc_category_description = 'Facility - Outpatient'
+)
+;
+Create table hap_ddr_raw.zz_eda_vist_p9_y1_HJ
+AS (
+SELECT c.person_internal_id
+,c.partneremployerid
+,c.patient_key
+,c.ds_flag_Obj21
+,counter as 'Unknown_visit'
+FROM hap_ddr_raw.zz_eda_part4_visit_y1_HJ c
+WHERE proc_category_description = 'Unknown'
+);
+
+Create table hap_ddr_raw.zz_eda_vist_p10_y1_HJ
+AS (
+SELECT c.person_internal_id
+,c.partneremployerid
+,c.patient_key
+,c.ds_flag_Obj21
+,counter as 'Durable_medical_visit'
+FROM hap_ddr_raw.zz_eda_part4_visit_y1_HJ c
+WHERE proc_category_description = 'Durable Medical Equipment'
+);
+
+Create table hap_ddr_raw.zz_eda_vist_p11_y1_HJ
+AS (
+SELECT c.person_internal_id
+,c.partneremployerid
+,c.patient_key
+,c.ds_flag_Obj21
+,counter as 'Lab_visit'
+FROM hap_ddr_raw.zz_eda_part4_visit_y1_HJ c
+WHERE proc_category_description = 'Lab'
+);
+
+##################################################################################################
+*Stiching together procedure category count tables
+##################################################################################################
+Create table hap_ddr_raw.zz_eda_part4_proc_cat_final_HJ
+AS (
+SELECT z.person_internal_id
+,z.partneremployerid
+,z.patient_key
+,z.ds_flag_Obj21 
+,MAX(if(a.global_imaging_vist > 0,'Yes','No')) as global_imaging_ind
+,MAX(if(b.specialist_vist > 0,'Yes','No')) as specialist_ind
+,MAX(if(c.facility_imaging_vist > 0,'Yes','No')) as facility_imaging_ind
+,MAX(if(d.primary_care_vist > 0,'Yes','No')) as primary_care_ind
+,MAX(if(e.physician_imaging_vist > 0,'Yes','No')) as physician_imaging_ind
+,MAX(if(f.inpatient_vist > 0,'Yes','No')) as inpatient_ind
+,MAX(if(g.physician_vist > 0,'Yes','No')) as physician_ind
+,MAX(if(h.outpatien_vist > 0,'Yes','No')) as outpatient_ind
+,MAX(if(i.Unknown_visit > 0,'Yes','No')) as Unknown_ind
+,MAX(if(j.durable_medical_visit > 0,'Yes','No')) as durable_medical_ind
+,MAX(if(k.lab_visit > 0,'Yes','No')) as lab_visit_ind
+from hap_ddr_raw.zz_eda_part4_visit_HJ z
+LEFT JOIN hap_ddr_raw.zz_eda_vist_p1_HJ a
+ON a.person_internal_id = z.person_internal_id
+AND a.partneremployerid = z.partneremployerid
+AND a.patient_key = z.patient_key
+LEFT JOIN hap_ddr_raw.zz_eda_vist_p2_HJ b
+ON b.person_internal_id = z.person_internal_id
+AND b.partneremployerid = z.partneremployerid
+AND b.patient_key = z.patient_key
+LEFT JOIN hap_ddr_raw.zz_eda_vist_p3_HJ c
+ON c.person_internal_id = z.person_internal_id
+AND c.partneremployerid = z.partneremployerid
+AND c.patient_key = z.patient_key
+LEFT JOIN hap_ddr_raw.zz_eda_vist_p4_HJ d
+ON d.person_internal_id = z.person_internal_id
+AND d.partneremployerid = z.partneremployerid
+AND d.patient_key = z.patient_key
+LEFT JOIN hap_ddr_raw.zz_eda_vist_p5_HJ e
+ON e.person_internal_id = z.person_internal_id
+AND e.partneremployerid = z.partneremployerid
+AND e.patient_key = z.patient_key
+LEFT JOIN hap_ddr_raw.zz_eda_vist_p6_HJ f
+ON f.person_internal_id = z.person_internal_id
+AND f.partneremployerid = z.partneremployerid
+AND f.patient_key = z.patient_key
+LEFT JOIN hap_ddr_raw.zz_eda_vist_p7_HJ g
+ON g.person_internal_id = z.person_internal_id
+AND g.partneremployerid = z.partneremployerid
+AND g.patient_key = z.patient_key
+LEFT JOIN hap_ddr_raw.zz_eda_vist_p8_HJ h
+ON h.person_internal_id = z.person_internal_id
+AND h.partneremployerid = z.partneremployerid
+AND h.patient_key = z.patient_key
+LEFT JOIN hap_ddr_raw.zz_eda_vist_p9_HJ i
+ON i.person_internal_id = z.person_internal_id
+AND i.partneremployerid = z.partneremployerid
+AND i.patient_key = z.patient_key
+LEFT JOIN hap_ddr_raw.zz_eda_vist_p10_HJ j
+ON j.person_internal_id = z.person_internal_id
+AND j.partneremployerid = z.partneremployerid
+AND j.patient_key = z.patient_key
+LEFT JOIN hap_ddr_raw.zz_eda_vist_p11_HJ k
+ON k.person_internal_id = z.person_internal_id
+AND k.partneremployerid = z.partneremployerid
+AND k.patient_key = z.patient_key
+GROUP BY 1,2,3,4
+)
+
+drop table hap_ddr_raw.zz_eda_part4_visit_HJ
+drop table hap_ddr_raw.zz_eda_vist_p1_HJ
+drop table hap_ddr_raw.zz_eda_vist_p2_HJ
+drop table hap_ddr_raw.zz_eda_vist_p3_HJ
+drop table hap_ddr_raw.zz_eda_vist_p4_HJ
+drop table hap_ddr_raw.zz_eda_vist_p5_HJ
+drop table hap_ddr_raw.zz_eda_vist_p6_HJ
+drop table hap_ddr_raw.zz_eda_vist_p7_HJ
+drop table hap_ddr_raw.zz_eda_vist_p8_HJ
+drop table hap_ddr_raw.zz_eda_vist_p9_HJ
+drop table hap_ddr_raw.zz_eda_vist_p10_HJ
+drop table hap_ddr_raw.zz_eda_vist_p11_HJ
+
+
+Create table hap_ddr_raw.zz_eda_part4_proc_cat_final_y1_HJ
+AS (
+SELECT z.person_internal_id
+,z.partneremployerid
+,z.patient_key
+,z.ds_flag_Obj21
+,MAX(if(a.global_imaging_vist > 0,'Yes','No')) as global_imaging_ind
+,MAX(if(b.specialist_vist > 0,'Yes','No')) as specialist_ind
+,MAX(if(c.facility_imaging_vist > 0,'Yes','No')) as facility_imaging_ind
+,MAX(if(d.primary_care_vist > 0,'Yes','No')) as primary_care_ind
+,MAX(if(e.physician_imaging_vist > 0,'Yes','No')) as physician_imaging_ind
+,MAX(if(f.inpatient_vist > 0,'Yes','No')) as inpatient_ind
+,MAX(if(g.physician_vist > 0,'Yes','No')) as physician_ind
+,MAX(if(h.outpatien_vist > 0,'Yes','No')) as outpatient_ind
+,MAX(if(i.Unknown_visit > 0,'Yes','No')) as Unknown_ind
+,MAX(if(j.durable_medical_visit > 0,'Yes','No')) as durable_medical_ind
+,MAX(if(k.lab_visit > 0,'Yes','No')) as lab_visit_ind
+from hap_ddr_raw.zz_eda_part4_visit_y1_HJ z
+LEFT JOIN hap_ddr_raw.zz_eda_vist_p1_y1_HJ a
+ON a.person_internal_id = z.person_internal_id
+AND a.partneremployerid = z.partneremployerid
+AND a.patient_key = z.patient_key
+LEFT JOIN hap_ddr_raw.zz_eda_vist_p2_y1_HJ b
+ON b.person_internal_id = z.person_internal_id
+AND b.partneremployerid = z.partneremployerid
+AND b.patient_key = z.patient_key
+LEFT JOIN hap_ddr_raw.zz_eda_vist_p3_y1_HJ c
+ON c.person_internal_id = z.person_internal_id
+AND c.partneremployerid = z.partneremployerid
+AND c.patient_key = z.patient_key
+LEFT JOIN hap_ddr_raw.zz_eda_vist_p4_y1_HJ d
+ON d.person_internal_id = z.person_internal_id
+AND d.partneremployerid = z.partneremployerid
+AND d.patient_key = z.patient_key
+LEFT JOIN hap_ddr_raw.zz_eda_vist_p5_y1_HJ e
+ON e.person_internal_id = z.person_internal_id
+AND e.partneremployerid = z.partneremployerid
+AND e.patient_key = z.patient_key
+LEFT JOIN hap_ddr_raw.zz_eda_vist_p6_y1_HJ f
+ON f.person_internal_id = z.person_internal_id
+AND f.partneremployerid = z.partneremployerid
+AND f.patient_key = z.patient_key
+LEFT JOIN hap_ddr_raw.zz_eda_vist_p7_y1_HJ g
+ON g.person_internal_id = z.person_internal_id
+AND g.partneremployerid = z.partneremployerid
+AND g.patient_key = z.patient_key
+LEFT JOIN hap_ddr_raw.zz_eda_vist_p8_y1_HJ h
+ON h.person_internal_id = z.person_internal_id
+AND h.partneremployerid = z.partneremployerid
+AND h.patient_key = z.patient_key
+LEFT JOIN hap_ddr_raw.zz_eda_vist_p9_y1_HJ i
+ON i.person_internal_id = z.person_internal_id
+AND i.partneremployerid = z.partneremployerid
+AND i.patient_key = z.patient_key
+LEFT JOIN hap_ddr_raw.zz_eda_vist_p10_y1_HJ j
+ON j.person_internal_id = z.person_internal_id
+AND j.partneremployerid = z.partneremployerid
+AND j.patient_key = z.patient_key
+LEFT JOIN hap_ddr_raw.zz_eda_vist_p11_y1_HJ k
+ON k.person_internal_id = z.person_internal_id
+AND k.partneremployerid = z.partneremployerid
+AND k.patient_key = z.patient_key
+GROUP BY 1,2,3,4
+)
+
+
+
+drop table hap_ddr_raw.zz_eda_part4_visit_y1_HJ
+drop table hap_ddr_raw.zz_eda_vist_p1_y1_HJ
+drop table hap_ddr_raw.zz_eda_vist_p2_y1_HJ
+drop table hap_ddr_raw.zz_eda_vist_p3_y1_HJ
+drop table hap_ddr_raw.zz_eda_vist_p4_y1_HJ
+drop table hap_ddr_raw.zz_eda_vist_p5_y1_HJ
+drop table hap_ddr_raw.zz_eda_vist_p6_y1_HJ
+drop table hap_ddr_raw.zz_eda_vist_p7_y1_HJ
+drop table hap_ddr_raw.zz_eda_vist_p8_y1_HJ
+drop table hap_ddr_raw.zz_eda_vist_p9_y1_HJ
+drop table hap_ddr_raw.zz_eda_vist_p10_y1_HJ
+drop table hap_ddr_raw.zz_eda_vist_p11_y1_HJ
+
+
+
+Create table hap_ddr_raw.zz_eda_part4_proc_cat_final_y0_HJ
+AS (
+SELECT z.person_internal_id
+,z.partneremployerid
+,z.patient_key
+,z.ds_flag_Obj21
+,MAX(if(a.global_imaging_vist > 0,'Yes','No')) as global_imaging_ind
+,MAX(if(b.specialist_vist > 0,'Yes','No')) as specialist_ind
+,MAX(if(c.facility_imaging_vist > 0,'Yes','No')) as facility_imaging_ind
+,MAX(if(d.primary_care_vist > 0,'Yes','No')) as primary_care_ind
+,MAX(if(e.physician_imaging_vist > 0,'Yes','No')) as physician_imaging_ind
+,MAX(if(f.inpatient_vist > 0,'Yes','No')) as inpatient_ind
+,MAX(if(g.physician_vist > 0,'Yes','No')) as physician_ind
+,MAX(if(h.outpatien_vist > 0,'Yes','No')) as outpatient_ind
+,MAX(if(i.Unknown_visit > 0,'Yes','No')) as Unknown_ind
+,MAX(if(j.durable_medical_visit > 0,'Yes','No')) as durable_medical_ind
+,MAX(if(k.lab_visit > 0,'Yes','No')) as lab_visit_ind
+from hap_ddr_raw.zz_eda_part4_visit_y0_HJ z
+LEFT JOIN hap_ddr_raw.zz_eda_vist_p1_y0_HJ a
+ON a.person_internal_id = z.person_internal_id
+AND a.partneremployerid = z.partneremployerid
+AND a.patient_key = z.patient_key
+LEFT JOIN hap_ddr_raw.zz_eda_vist_p2_y0_HJ b
+ON b.person_internal_id = z.person_internal_id
+AND b.partneremployerid = z.partneremployerid
+AND b.patient_key = z.patient_key
+LEFT JOIN hap_ddr_raw.zz_eda_vist_p3_y0_HJ c
+ON c.person_internal_id = z.person_internal_id
+AND c.partneremployerid = z.partneremployerid
+AND c.patient_key = z.patient_key
+LEFT JOIN hap_ddr_raw.zz_eda_vist_p4_y0_HJ d
+ON d.person_internal_id = z.person_internal_id
+AND d.partneremployerid = z.partneremployerid
+AND d.patient_key = z.patient_key
+LEFT JOIN hap_ddr_raw.zz_eda_vist_p5_y0_HJ e
+ON e.person_internal_id = z.person_internal_id
+AND e.partneremployerid = z.partneremployerid
+AND e.patient_key = z.patient_key
+LEFT JOIN hap_ddr_raw.zz_eda_vist_p6_y0_HJ f
+ON f.person_internal_id = z.person_internal_id
+AND f.partneremployerid = z.partneremployerid
+AND f.patient_key = z.patient_key
+LEFT JOIN hap_ddr_raw.zz_eda_vist_p7_y0_HJ g
+ON g.person_internal_id = z.person_internal_id
+AND g.partneremployerid = z.partneremployerid
+AND g.patient_key = z.patient_key
+LEFT JOIN hap_ddr_raw.zz_eda_vist_p8_y0_HJ h
+ON h.person_internal_id = z.person_internal_id
+AND h.partneremployerid = z.partneremployerid
+AND h.patient_key = z.patient_key
+LEFT JOIN hap_ddr_raw.zz_eda_vist_p9_y0_HJ i
+ON i.person_internal_id = z.person_internal_id
+AND i.partneremployerid = z.partneremployerid
+AND i.patient_key = z.patient_key
+LEFT JOIN hap_ddr_raw.zz_eda_vist_p10_y0_HJ j
+ON j.person_internal_id = z.person_internal_id
+AND j.partneremployerid = z.partneremployerid
+AND j.patient_key = z.patient_key
+LEFT JOIN hap_ddr_raw.zz_eda_vist_p11_y0_HJ k
+ON k.person_internal_id = z.person_internal_id
+AND k.partneremployerid = z.partneremployerid
+AND k.patient_key = z.patient_key
+GROUP BY 1,2,3,4
+)
+
+
+
+drop table hap_ddr_raw.zz_eda_part4_visit_y0_HJ
+drop table hap_ddr_raw.zz_eda_vist_p1_y0_HJ
+drop table hap_ddr_raw.zz_eda_vist_p2_y0_HJ
+drop table hap_ddr_raw.zz_eda_vist_p3_y0_HJ
+drop table hap_ddr_raw.zz_eda_vist_p4_y0_HJ
+drop table hap_ddr_raw.zz_eda_vist_p5_y0_HJ
+drop table hap_ddr_raw.zz_eda_vist_p6_y0_HJ
+drop table hap_ddr_raw.zz_eda_vist_p7_y0_HJ
+drop table hap_ddr_raw.zz_eda_vist_p8_y0_HJ
+drop table hap_ddr_raw.zz_eda_vist_p9_y0_HJ
+drop table hap_ddr_raw.zz_eda_vist_p10_y0_HJ
+drop table hap_ddr_raw.zz_eda_vist_p11_y0_HJ
+
+
+#################################################################################################
+*Create final diabetic data table - Total rows - 675657
+ ds_flag_Obj21     No - 617698, Yes - 57959
+#################################################################################################
+Create table hap_ddr_raw.zz_eda_modelling_diabetic_HJ
+AS (
+SELECT z.person_internal_id
+,z.partneremployerid
+,z.patient_key
+,z.ds_flag_Obj21
+,ISNULL(a.tot_billed_amt_Yr_0,0) as tot_billed_amt_Yr_0
+,ISNULL(a.avg_billed_amt_Yr_0,0) as avg_billed_amt_Yr_0
+,ISNULL(a.std_billed_amt_Yr_0,0) as std_billed_amt_Yr_0
+,ISNULL(a.max_billed_amt_Yr_0,0) as max_billed_amt_Yr_0
+,ISNULL(a.employer_paid_Yr_0,0) as employer_paid_Yr_0
+,ISNULL(a.employee_paid1_Yr_0,0) as employee_paid1_Yr_0
+,ISNULL(a.employee_paid2_Yr_0,0) as employee_paid2_Yr_0
+,ISNULL(a.paid_thr_deduct_Yr_0,0) as paid_thr_deduct_Yr_0
+,ISNULL(a.tot_billed_amt_yr_1,0) as tot_billed_amt_yr_1
+,ISNULL(a.avg_billed_amt_yr_1,0) as avg_billed_amt_yr_1
+,ISNULL(a.std_billed_amt_yr_1,0) as std_billed_amt_yr_1
+,ISNULL(a.max_billed_amt_yr_1,0) as max_billed_amt_yr_1
+,ISNULL(a.employer_paid_yr_1,0) as employer_paid_yr_1
+,ISNULL(a.employee_paid1_yr_1,0) as employee_paid1_yr_1
+,ISNULL(a.employee_paid2_yr_1,0) as employee_paid2_yr_1
+,ISNULL(a.paid_thr_deduct_yr_1,0) as paid_thr_deduct_yr_1
+,ISNULL(a.tot_billed_amt_yr,0) as tot_billed_amt_yr
+,ISNULL(a.avg_billed_amt_yr,0) as avg_billed_amt_yr
+,ISNULL(a.std_billed_amt_yr,0) as std_billed_amt_yr
+,ISNULL(a.max_billed_amt_yr,0) as max_billed_amt_yr
+,ISNULL(a.employer_paid_yr,0) as employer_paid_yr
+,ISNULL(a.employee_paid1_yr,0) as employee_paid1_yr
+,ISNULL(a.employee_paid2_yr,0) as employee_paid2_yr
+,ISNULL(a.paid_thr_deduct_yr,0) as paid_thr_deduct_yr
+,ISNULL(b.thymus_gland_Flag_Yr_0,'No') as thymus_gland_Flag_Yr_0
+,ISNULL(b.adrenal_glands_Flag_Yr_0,'No') as adrenal_glands_Flag_Yr_0
+,ISNULL(b.parathyroid_gland_Flag_Yr_0,'No') as parathyroid_gland_Flag_Yr_0
+,ISNULL(b.pituitary_gland_Flag_Yr_0,'No') as pituitary_gland_Flag_Yr_0
+,ISNULL(b.pancreatic_internal_secretion_Flag_Yr_0,'No') as pancreatic_internal_secretion_Flag_Yr_0
+,ISNULL(b.endocrine_Flag_Yr_0,'No') as endocrine_Flag_Yr_0
+,ISNULL(b.Ovarian_dysfunction_Flag_Yr_0,'No') as Ovarian_dysfunction_Flag_Yr_0
+,ISNULL(b.Polyglandular_dysfunction_Flag_Yr_0,'No') as Polyglandular_dysfunction_Flag_Yr_0
+,ISNULL(b.Testicular_dysfunction_Flag_Yr_0,'No') as Testicular_dysfunction_Flag_Yr_0
+,ISNULL(b.Gestational_Diabetes_Flag_Yr_0,'No') as Gestational_Diabetes_Flag_Yr_0
+,ISNULL(b.Family_History_of_Diabetes_Flag_Yr_0,'No') as Family_History_of_Diabetes_Flag_Yr_0
+,ISNULL(b.High_Blood_Pressure_Flag_Yr_0,'No') as High_Blood_Pressure_Flag_Yr_0
+,ISNULL(b.Lack_of_Physical_Exercise_Flag_Yr_0,'No') as Lack_of_Physical_Exercise_Flag_Yr_0
+,ISNULL(b.Overweight_or_Obesity_Flag_Yr_0,'No') as Overweight_or_Obesity_Flag_Yr_0
+,ISNULL(b.Polyuria_Flag_Yr_0,'No') as Polyuria_Flag_Yr_0
+,ISNULL(b.Polydipsia_Flag_Yr_0,'No') as Polydipsia_Flag_Yr_0
+,ISNULL(b.Sudden_Weight_Change_Flag_Yr_0,'No') as Sudden_Weight_Change_Flag_Yr_0
+,ISNULL(b.Polyphagia_Flag_Yr_0,'No') as Polyphagia_Flag_Yr_0
+,ISNULL(b.Irritability_Flag_Yr_0,'No') as Irritability_Flag_Yr_0
+,ISNULL(b.Fatigue_Flag_Yr_0,'No') as Fatigue_Flag_Yr_0
+,ISNULL(b.Blurred_Vision_Flag_Yr_0,'No') as Blurred_Vision_Flag_Yr_0
+,ISNULL(b.Numbness_Flag_Yr_0,'No') as Numbness_Flag_Yr_0
+
+
+
+
+
+
+,ISNULL(b.thymus_gland_Flag_Yr_1,'No') as thymus_gland_Flag_Yr_1
+,ISNULL(b.adrenal_glands_Flag_Yr_1,'No') as adrenal_glands_Flag_Yr_1
+,ISNULL(b.parathyroid_gland_Flag_Yr_1,'No') as parathyroid_gland_Flag_Yr_1
+,ISNULL(b.pituitary_gland_Flag_Yr_1,'No') as pituitary_gland_Flag_Yr_1
+,ISNULL(b.pancreatic_internal_secretion_Flag_Yr_1,'No') as pancreatic_internal_secretion_Flag_Yr_1
+,ISNULL(b.endocrine_Flag_Yr_1,'No') as endocrine_Flag_Yr_1
+,ISNULL(b.Ovarian_dysfunction_Flag_Yr_1,'No') as Ovarian_dysfunction_Flag_Yr_1
+,ISNULL(b.Polyglandular_dysfunction_Flag_Yr_1,'No') as Polyglandular_dysfunction_Flag_Yr_1
+,ISNULL(b.Testicular_dysfunction_Flag_Yr_1,'No') as Testicular_dysfunction_Flag_Yr_1
+,ISNULL(b.Gestational_Diabetes_Flag_Yr_1,'No') as Gestational_Diabetes_Flag_Yr_1
+,ISNULL(b.Family_History_of_Diabetes_Flag_Yr_1,'No') as Family_History_of_Diabetes_Flag_Yr_1
+,ISNULL(b.High_Blood_Pressure_Flag_Yr_1,'No') as High_Blood_Pressure_Flag_Yr_1
+,ISNULL(b.Lack_of_Physical_Exercise_Flag_Yr_1,'No') as Lack_of_Physical_Exercise_Flag_Yr_1
+,ISNULL(b.Overweight_or_Obesity_Flag_Yr_1,'No') as Overweight_or_Obesity_Flag_Yr_1
+,ISNULL(b.Polyuria_Flag_Yr_1,'No') as Polyuria_Flag_Yr_1
+,ISNULL(b.Polydipsia_Flag_Yr_1,'No') as Polydipsia_Flag_Yr_1
+,ISNULL(b.Sudden_Weight_Change_Flag_Yr_1,'No') as Sudden_Weight_Change_Flag_Yr_1
+,ISNULL(b.Polyphagia_Flag_Yr_1,'No') as Polyphagia_Flag_Yr_1
+,ISNULL(b.Irritability_Flag_Yr_1,'No') as Irritability_Flag_Yr_1
+,ISNULL(b.Fatigue_Flag_Yr_1,'No') as Fatigue_Flag_Yr_1
+,ISNULL(b.Blurred_Vision_Flag_Yr_1,'No') as Blurred_Vision_Flag_Yr_1
+,ISNULL(b.Numbness_Flag_Yr_1,'No') as Numbness_Flag_Yr_1
+
+
+
+
+
+
+,ISNULL(b.thymus_gland_Flag_Yr,'No') as thymus_gland_Flag_Yr
+,ISNULL(b.adrenal_glands_Flag_Yr,'No') as adrenal_glands_Flag_Yr
+,ISNULL(b.parathyroid_gland_Flag_Yr,'No') as parathyroid_gland_Flag_Yr
+,ISNULL(b.pituitary_gland_Flag_Yr,'No') as pituitary_gland_Flag_Yr
+,ISNULL(b.pancreatic_internal_secretion_Flag_Yr,'No') as pancreatic_internal_secretion_Flag_Yr
+,ISNULL(b.endocrine_Flag_Yr,'No') as endocrine_Flag_Yr
+,ISNULL(b.Ovarian_dysfunction_Flag_Yr,'No') as Ovarian_dysfunction_Flag_Yr
+,ISNULL(b.Polyglandular_dysfunction_Flag_Yr,'No') as Polyglandular_dysfunction_Flag_Yr
+,ISNULL(b.Testicular_dysfunction_Flag_Yr,'No') as Testicular_dysfunction_Flag_Yr
+,ISNULL(b.Gestational_Diabetes_Flag_Yr,'No') as Gestational_Diabetes_Flag_Yr
+,ISNULL(b.Family_History_of_Diabetes_Flag_Yr,'No') as Family_History_of_Diabetes_Flag_Yr
+,ISNULL(b.High_Blood_Pressure_Flag_Yr,'No') as High_Blood_Pressure_Flag_Yr
+,ISNULL(b.Lack_of_Physical_Exercise_Flag_Yr,'No') as Lack_of_Physical_Exercise_Flag_Yr
+,ISNULL(b.Overweight_or_Obesity_Flag_Yr,'No') as Overweight_or_Obesity_Flag_Yr
+,ISNULL(b.Polyuria_Flag_Yr,'No') as Polyuria_Flag_Yr
+,ISNULL(b.Polydipsia_Flag_Yr,'No') as Polydipsia_Flag_Yr
+,ISNULL(b.Sudden_Weight_Change_Flag_Yr,'No') as Sudden_Weight_Change_Flag_Yr
+,ISNULL(b.Polyphagia_Flag_Yr,'No') as Polyphagia_Flag_Yr
+,ISNULL(b.Irritability_Flag_Yr,'No') as Irritability_Flag_Yr
+,ISNULL(b.Fatigue_Flag_Yr,'No') as Fatigue_Flag_Yr
+,ISNULL(b.Blurred_Vision_Flag_Yr,'No') as Blurred_Vision_Flag_Yr
+,ISNULL(b.Numbness_Flag_Yr,'No') as Numbness_Flag_Yr
+
+
+
+
+
+,ISNULL(c.global_imaging_ind,'No') as global_imaging_ind
+,ISNULL(c.specialist_ind,'No') as specialist_ind
+,ISNULL(c.facility_imaging_ind,'No') as facility_imaging_ind
+,ISNULL(c.primary_care_ind,'No') as primary_care_ind
+,ISNULL(c.physician_imaging_ind,'No') as physician_imaging_ind
+,ISNULL(c.inpatient_ind,'No') as inpatient_ind
+,ISNULL(c.physician_ind,'No') as physician_ind
+,ISNULL(c.outpatient_ind,'No') as outpatient_ind
+,ISNULL(c.unknown_ind,'No') as unknown_ind
+,ISNULL(c.durable_medical_ind,'No') as durable_medical_ind
+,ISNULL(c.lab_visit_ind,'No') as lab_visit_ind
+,ISNULL(d.global_imaging_ind,'No') as global_imaging_ind_y0
+,ISNULL(d.specialist_ind,'No') as specialist_ind_y0
+,ISNULL(d.facility_imaging_ind,'No') as facility_imaging_ind_y0
+,ISNULL(d.primary_care_ind,'No') as primary_care_ind_y0
+,ISNULL(d.physician_imaging_ind,'No') as physician_imaging_ind_y0
+,ISNULL(d.inpatient_ind,'No') as inpatient_ind_y0
+,ISNULL(d.physician_ind,'No') as physician_ind_y0
+,ISNULL(d.outpatient_ind,'No') as outpatient_ind_y0
+,ISNULL(d.unknown_ind,'No') as unknown_ind_y0
+,ISNULL(d.durable_medical_ind,'No') as durable_medical_ind_y0
+,ISNULL(d.lab_visit_ind,'No') as lab_visit_ind_y0
+,ISNULL(e.global_imaging_ind,'No') as global_imaging_ind_y1
+,ISNULL(e.specialist_ind,'No') as specialist_ind_y1
+,ISNULL(e.facility_imaging_ind,'No') as facility_imaging_ind_y1
+,ISNULL(e.primary_care_ind,'No') as primary_care_ind_y1
+,ISNULL(e.physician_imaging_ind,'No') as physician_imaging_ind_y1
+,ISNULL(e.inpatient_ind,'No') as inpatient_ind_y1
+,ISNULL(e.physician_ind,'No') as physician_ind_y1
+,ISNULL(e.outpatient_ind,'No') as outpatient_ind_y1
+,ISNULL(e.unknown_ind,'No') as unknown_ind_y1
+,ISNULL(e.durable_medical_ind,'No') as durable_medical_ind_y1
+,ISNULL(e.lab_visit_ind,'No') as lab_visit_ind_y1
+FROM hap_ddr_raw.zz_obj_DS_HJz
+LEFT JOIN hap_ddr_raw.zz_eda_part1_final_costYr_Yr_0Yr_1_HJ a
+ON a.person_internal_id = z.person_internal_id
+AND a.partneremployerid = z.partneremployerid
+AND a.patient_key = z.patient_key
+LEFT JOIN hap_ddr_raw.zz_eda_Yr_0_Yr_1_Yr_health_flags_HJ b
+ON b.person_internal_id = z.person_internal_id
+AND b.partneremployerid = z.partneremployerid
+AND b.patient_key = z.patient_key
+LEFT JOIN hap_ddr_raw.zz_eda_part4_proc_cat_final_HJ c 
+ON c.person_internal_id = z.person_internal_id
+AND c.partneremployerid = z.partneremployerid
+AND c.patient_key = z.patient_key
+LEFT JOIN hap_ddr_raw.zz_eda_part4_proc_cat_final_y0_HJ d 
+ON d.person_internal_id = z.person_internal_id
+AND d.partneremployerid = z.partneremployerid
+AND d.patient_key = z.patient_key
+LEFT JOIN hap_ddr_raw.zz_eda_part4_proc_cat_final_y1_HJ e
+ON e.person_internal_id = z.person_internal_id
+AND e.partneremployerid = z.partneremployerid
+AND e.patient_key = z.patient_key
+)
+
+
+
+drop table hap_ddr_raw.zz_obj_DS_HJ 
+drop table hap_ddr_raw.zz_eda_part1_final_costYr1_Yr0_Yr_HJ 
+drop table hap_ddr_raw.zz_eda_Yr_0_Yr_1_Yr_health_flags_HJ 
+
+
+
+############################################################################################
+Pull out CSV files and upload into S3
+
+SELECT * FROM hap_ddr_raw.zz_eda_modelling_diabetic_HJ
+
+
+
