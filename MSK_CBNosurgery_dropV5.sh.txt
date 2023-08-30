@@ -1,0 +1,125 @@
+#!/usr/bin/ksh
+PROCESS_NM=`basename $0 .sh`
+. hd000000.sh
+
+if [[ -e hd000000.${USER}.sh ]]; then
+  . hd000000.${USER}.sh
+fi
+DSML_DB="edh_${ENV}_raw_core_health"
+
+APPLY="Y"
+SRC_TYPE="1"
+TAG=""
+MEM="6"
+while getopts :a:d:e:D:t:v:m:S: args
+do
+ case $args in
+        a) APPLY=$OPTARG;;
+        e) ENV=$OPTARG;;
+        m) MEM=$OPTARG;;
+        S) SRC_TYPE=$OPTARG;;
+        t) TAG=$OPTARG;;
+        *) echo "$args invalid option" ; return 300
+ esac
+done
+
+FNM="$DATA_DIR/${PROCESS_NM}01"
+
+rm -f $FNM.sql
+echo "INFO: FNM=$FNM"
+JOB_START_TS=`date '+%Y-%m-%d-%H:%M:%S'`
+START_TS=`date '+%Y%m%d%H%M%S'`
+echo " INFO:TAG=${TAG}"
+
+
+echo "
+drop table if exists ${DSML_DB}.compass_claims_raw_med_claim_rollup_clean${TAG}    
+;drop table if exists ${DSML_DB}.compass_claims_rollup_2021${TAG}
+;drop table if exists ${DSML_DB}.compass_claims_rollup_2020${TAG}
+;drop table if exists ${DSML_DB}.compass_claims_rollup_2019${TAG}
+;drop table if exists ${DSML_DB}.zz_obj_MSK_CKHBSurgery_21_HJ${TAG}
+;drop table if exists ${DSML_DB}.zz_obj_MSK_partcost19_HJ${TAG}
+;drop table if exists ${DSML_DB}.zz_part1_f19_HJ${TAG}
+;drop table if exists ${DSML_DB}.zz_part2_f19_HJ${TAG}
+;drop table if exists ${DSML_DB}.zz_part3_f19_HJ${TAG}
+;drop table if exists ${DSML_DB}.zz_part4_f19_HJ${TAG}
+;drop table if exists ${DSML_DB}.zz_part5_f19_HJ${TAG}
+;drop table if exists ${DSML_DB}.zz_obj_MSK_partcost20_HJ${TAG}
+;drop table if exists ${DSML_DB}.zz_part1_f20_HJ${TAG}
+;drop table if exists ${DSML_DB}.zz_part2_f20_HJ${TAG}
+;drop table if exists ${DSML_DB}.zz_part3_f20_HJ${TAG}
+;drop table if exists ${DSML_DB}.zz_part4_f20_HJ${TAG}
+;drop table if exists ${DSML_DB}.zz_part5_f20_HJ${TAG}
+;drop table if exists ${DSML_DB}.zz_obj_MSK_partcost21_HJ${TAG}
+;drop table if exists ${DSML_DB}.zz_part1_f21_HJ${TAG}
+;drop table if exists ${DSML_DB}.zz_part2_f21_HJ${TAG}
+;drop table if exists ${DSML_DB}.zz_part3_f21_HJ${TAG}
+;drop table if exists ${DSML_DB}.zz_part4_f21_HJ${TAG}
+;drop table if exists ${DSML_DB}.zz_part5_f21_HJ${TAG}
+;drop table if exists ${DSML_DB}.zz_eda_part1_final_costYr1_Yr0_Yr_HJ${TAG}
+;drop table if exists ${DSML_DB}.zz_eda_Yr_0_health_flags_HJ${TAG}
+;drop table if exists ${DSML_DB}.zz_eda_Yr_1_health_flags_HJ${TAG}
+;drop table if exists ${DSML_DB}.zz_eda_Yr_health_flags_HJ${TAG}
+;drop table if exists ${DSML_DB}.zz_eda_Yr_0_Yr_1_Yr_health_flags_HJ${TAG}
+;drop table if exists ${DSML_DB}.zz_eda_part4_visit_HJ${TAG}
+;drop table if exists ${DSML_DB}.zz_eda_vist_p1_HJ${TAG}
+;drop table if exists ${DSML_DB}.zz_eda_vist_p2_HJ${TAG}
+;drop table if exists ${DSML_DB}.zz_eda_vist_p3_HJ${TAG}
+;drop table if exists ${DSML_DB}.zz_eda_vist_p4_HJ${TAG}
+;drop table if exists ${DSML_DB}.zz_eda_vist_p5_HJ${TAG}
+;drop table if exists ${DSML_DB}.zz_eda_vist_p6_HJ${TAG}
+;drop table if exists ${DSML_DB}.zz_eda_vist_p7_HJ${TAG}
+;drop table if exists ${DSML_DB}.zz_eda_vist_p8_HJ${TAG}
+;drop table if exists ${DSML_DB}.zz_eda_vist_p9_HJ${TAG}
+;drop table if exists ${DSML_DB}.zz_eda_vist_p10_HJ${TAG}
+;drop table if exists ${DSML_DB}.zz_eda_vist_p11_HJ${TAG}
+;drop table if exists ${DSML_DB}.zz_eda_part4_visit_Y0_HJ${TAG}
+;drop table if exists ${DSML_DB}.zz_eda_vist_p1_Y0_HJ${TAG}
+;drop table if exists ${DSML_DB}.zz_eda_vist_p2_Y0_HJ${TAG}
+;drop table if exists ${DSML_DB}.zz_eda_vist_p3_Y0_HJ${TAG}
+;drop table if exists ${DSML_DB}.zz_eda_vist_p4_Y0_HJ${TAG}
+;drop table if exists ${DSML_DB}.zz_eda_vist_p5_Y0_HJ${TAG}
+;drop table if exists ${DSML_DB}.zz_eda_vist_p6_Y0_HJ${TAG}
+;drop table if exists ${DSML_DB}.zz_eda_vist_p7_Y0_HJ${TAG}
+;drop table if exists ${DSML_DB}.zz_eda_vist_p8_Y0_HJ${TAG}
+;drop table if exists ${DSML_DB}.zz_eda_vist_p9_Y0_HJ${TAG}
+;drop table if exists ${DSML_DB}.zz_eda_vist_p10_Y0_HJ${TAG}
+;drop table if exists ${DSML_DB}.zz_eda_vist_p11_Y0_HJ${TAG}
+;drop table if exists ${DSML_DB}.zz_eda_part4_visit_Y1_HJ${TAG}
+;drop table if exists ${DSML_DB}.zz_eda_vist_p1_Y1_HJ${TAG}
+;drop table if exists ${DSML_DB}.zz_eda_vist_p2_Y1_HJ${TAG}
+;drop table if exists ${DSML_DB}.zz_eda_vist_p3_Y1_HJ${TAG}
+;drop table if exists ${DSML_DB}.zz_eda_vist_p4_Y1_HJ${TAG}
+;drop table if exists ${DSML_DB}.zz_eda_vist_p5_Y1_HJ${TAG}
+;drop table if exists ${DSML_DB}.zz_eda_vist_p6_Y1_HJ${TAG}
+;drop table if exists ${DSML_DB}.zz_eda_vist_p7_Y1_HJ${TAG}
+;drop table if exists ${DSML_DB}.zz_eda_vist_p8_Y1_HJ${TAG}
+;drop table if exists ${DSML_DB}.zz_eda_vist_p9_Y1_HJ${TAG}
+;drop table if exists ${DSML_DB}.zz_eda_vist_p10_Y1_HJ${TAG}
+;drop table if exists ${DSML_DB}.zz_eda_vist_p11_Y1_HJ${TAG}
+;drop table if exists ${DSML_DB}.zz_eda_part4_proc_cat_final_Y0_HJ${TAG}
+;drop table if exists ${DSML_DB}.zz_eda_part4_proc_cat_final_Y1_HJ${TAG}
+;drop table if exists ${DSML_DB}.zz_eda_part4_proc_cat_final_HJ${TAG}
+;drop table if exists ${DSML_DB}.zz_eda_modelling_spine_MSK_CBNoSurgery_21_HJ${TAG}
+;drop table if exists ${DSML_DB}.hispndr_demographic
+;drop table if exists ${DSML_DB}.hispndr_claims
+" > $FNM.sql
+
+echo "INFO: $FNM.sql"
+sql_fn="$FNM.sql"
+
+chmod 664 $sql_fn
+$CONNECT_IMPALA -B -f $sql_fn
+rc=$?
+if [[ "$rc" != "0" ]]; then
+  echo "ERROR: drop sql failed, rc=$rc"
+  return $rc
+fi
+sleep 5
+$CONNECT_IMPALA -B -f $sql_fn
+rc=$?
+if [[ "$rc" != "0" ]]; then
+  echo "ERROR: drop sql failed, rc=$rc"
+  return $rc
+fi
+return 0
