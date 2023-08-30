@@ -1,0 +1,295 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CF Template for provisoning batch resources, IAM resources, Lambda function and State machines.
+
+Parameters:
+  AccountID:
+    Type: String
+    Default: 110008799848
+    AllowedValues:
+      - 110008799848
+      - 660999144548
+
+  BucketName:
+    Type: String
+    Default: adl-core-dev-sagemaker-studio
+    AllowedValues:
+      - adl-core-dev-sagemaker-studio
+      - adl-core-sagemaker-studio
+      - adl-core-ml-staging
+
+  ModelOutputBucket:
+    Type: String
+    Default: adl-core-dev-alteryx-stage
+    AllowedValues:
+      - adl-core-dev-alteryx-stage
+      - adl-core-prod-alteryx-stage
+
+  KmsPolicyName:
+    Type: String
+    Default: adl-core-dev-kms-cmk-policy
+    AllowedValues:
+      - adl-core-dev-kms-cmk-policy
+      - adl-core-prod-kms-cmk-policy
+
+  SecurityGroup:
+    Type: String
+    Default: sg-0e6b8f80186ca5d2f
+    AllowedValues:
+      - sg-0e6b8f80186ca5d2f
+      - sg-0f0c7c20eaf42f361
+
+  App1Subnet:
+    Type: String
+    Default: subnet-03776e65c03f0e38a
+    AllowedValues:
+      - subnet-03776e65c03f0e38a
+      - subnet-03017555aac49a70e
+
+  App2Subnet:
+    Type: String
+    Default: subnet-0db1e7bdd608bd856
+    AllowedValues:
+     - subnet-0db1e7bdd608bd856
+     - subnet-08b83791025b8aca9
+
+  KmsKeyId:
+    Type: String
+    Default: 72fa8706-16e7-4488-9ad9-2ae74b196896
+    AllowedValues:
+      - 72fa8706-16e7-4488-9ad9-2ae74b196896
+      - 866379e2-50f0-4da4-832f-fc10d35bfd27
+
+  EcrRepository:
+    Type: String
+    Default: sagemaker-studio-d-ecrqzndgrmpo
+    AllowedValues:
+     - sagemaker-studio-d-ecrqzndgrmpo
+     - adl-core-sagemaker-repository
+   
+  ClinicalBatchImage:
+    Type: String
+    Default: MSK_clinical_Image
+    AllowedValues:
+      - MSK_clinical_Image
+      
+
+
+Resources:
+  ClinicalJobDefinition:
+    Type: AWS::Batch::JobDefinition
+    Properties:
+      Type: container
+      JobDefinitionName: adl-core-clinical-msk-task-cf-job04
+      PlatformCapabilities: 
+        - FARGATE
+      SchedulingPriority: 1
+      Timeout:
+        AttemptDurationSeconds: 86400
+      ContainerProperties:
+        Command:
+          - sh
+          - run_job.sh
+        FargatePlatformConfiguration: 
+          PlatformVersion: 1.4.0
+        ExecutionRoleArn: !GetAtt ServiceRole.Arn
+        JobRoleArn: !GetAtt ServiceRole.Arn
+        ResourceRequirements:
+          - Type: VCPU
+            Value: 4
+          - Type: MEMORY
+            Value: 12288
+        Image: !Join ["",[!Ref AccountID,".dkr.ecr.us-east-1.amazonaws.com/",!Ref EcrRepository,":",!Ref ClinicalBatchImage]]
+
+  
+  BatchFailSNSTopic:
+    Type: AWS::SNS::Topic
+    Properties: 
+      DisplayName: Batch Process Failed
+      KmsMasterKeyId: !Ref KmsKeyId
+      Subscription: 
+        
+        - Endpoint: "kamal.yadav.2@alight.com"
+          Protocol: "email"
+        - Endpoint: "akshat.sharma@alight.com"
+          Protocol: "email"
+        - Endpoint: "mike.maclaverty@alight.com"
+          Protocol: "email"
+        - Endpoint: "harish.janagam@alight.com"
+          Protocol: "email"
+      Tags: 
+        - Key: "adl"
+          Value: "core"
+        - Key: "project"
+          Value: "clinicalmsk"
+      TopicName: adl-core-batch-failure-topic-cf04
+
+  BatchSuccessSNSTopic:
+    Type: AWS::SNS::Topic
+    Properties: 
+      DisplayName: Batch Process Successful
+      KmsMasterKeyId: !Ref KmsKeyId
+      Subscription: 
+        - Endpoint: "akshat.sharma@alight.com"
+          Protocol: "email"
+        - Endpoint: "kamal.yadav.2@alight.com"
+          Protocol: "email"
+        - Endpoint: "mike.maclaverty@alight.com"
+          Protocol: "email"
+        - Endpoint: "harish.janagam@alight.com"
+          Protocol: "email"
+          
+      Tags: 
+        - Key: "adl"
+          Value: "core"
+        - Key: "project"
+          Value: "clinicalmsk"
+      TopicName: adl-core-batch-success-topic-cf04
+
+  BatchPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      Description: Service policy for batch jobs
+      Path: /
+      ManagedPolicyName: adl-core-batch-policy-clinical-cf04
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - "ecr:GetAuthorizationToken"
+              - "ecr:BatchCheckLayerAvailability"
+              - "ecr:GetDownloadUrlForLayer"
+              - "ecr:BatchGetImage"
+            Resource: "*"
+
+          - Effect: Allow
+            Action:
+              - "logs:CreateLogGroup"
+              - "logs:CreateLogStream"
+              - "logs:PutLogEvents"
+              - "batch:SubmitJob"
+              - "batch:DescribeJobs"
+              - "batch:TerminateJob"
+            Resource: "*"
+
+          - Effect: Allow
+            Action:
+              - s3:PutObject
+            Resource: [!Join ["",["arn:aws:s3:::", !Ref ModelOutputBucket,"/*"]]]
+
+          - Effect: Allow
+            Action:
+              - 's3:ListBucket'
+            Resource: "*"
+
+          - Effect: Allow
+            Action:
+              - "sns:Publish"
+            Resource: "*"  #!Join ["",["arn:aws:sns:us-east-1:",!Ref AccountID,":adl-core-*"]]
+
+
+  LambdaPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      Description: Service policy for lambda function
+      Path: /
+      ManagedPolicyName: adl-core-batch-trigger-lambda-clinical-cfn04
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - "batch:StartExecution"
+            Resource: !Join ["",["arn:aws:batch:us-east-1:",!Ref AccountID,":Batch:adl-core-*"]]
+          - Effect: Allow
+            Action:
+              - "batch:SubmitJob"
+              - "batch:DescribeJobs"
+              - "batch:TerminateJob"
+
+            Resource: [!Join ["",["arn:aws:batch:us-east-1:",!Ref AccountID,":job-definition/adl-core-*:*"]],!Join ["",["arn:aws:batch:us-east-1:",!Ref AccountID,":job-queue/adl-core-*"]]]
+
+          - Effect: Allow
+            Action:
+              - "events:PutTargets"
+              - "events:PutRule"
+              - "events:DescribeRule"
+
+            Resource: !Join ["",["arn:aws:events:us-east-1:",!Ref AccountID, ":rule/GetEventForBatchJobsRule"]]
+
+          - Effect: Allow
+            Action:
+              - s3:Put*
+              - s3:Get*
+              - s3:DeleteObject
+            Resource: [!Join ["",["arn:aws:s3:::",!Ref BucketName]], !Join ["",["arn:aws:s3:::", !Ref BucketName,"/*"]]]
+
+          - Effect: Allow
+            Action:
+              - "sns:Publish"
+            Resource: !Join ["",["arn:aws:sns:us-east-1:",!Ref AccountID,":adl-core-*"]]
+
+
+  ServiceRole:
+      Type: AWS::IAM::Role
+      Properties:
+        RoleName:
+          Fn::Sub: adl-core-dev-clinical-cf-service-role04
+        AssumeRolePolicyDocument:
+          Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service:
+                  - lambda.amazonaws.com
+                  - ecs-tasks.amazonaws.com
+              Action:
+                - 'sts:AssumeRole'
+        Path: /
+        ManagedPolicyArns:
+                    - !Ref LambdaPolicy
+                    - !Ref BatchPolicy
+                    - !Join ["",["arn:aws:iam::",!Ref AccountID,":policy/", !Ref KmsPolicyName]]
+  
+  LambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties: 
+      FunctionName: adl-core-clinical-msk-lambda-cfn04 
+      Description: Intial LambdaFunction for triggering the batch jobs
+      Role: !GetAtt ServiceRole.Arn
+      Runtime: python3.9
+      Code:
+        S3Bucket: !Ref BucketName
+        S3Key: external/Harish/msk_line_item/MSK_line_item_lambda.zip
+      Handler: MSK_line_item_lambda.lambda_handler
+      # LambdaFunctionName: adl-core-clinical-msk-task-cfn
+      MemorySize: 1024
+      EphemeralStorage: 
+        Size: 2048
+      Timeout: 900
+      Environment:
+        Variables:
+          Clinical_JobDefinition: !Ref ClinicalJobDefinition
+          Job_queue: adl-core-fargate-queue
+          Success_sns_topic: !Ref BatchSuccessSNSTopic
+          failure_sns_topic: !Ref BatchFailSNSTopic
+                    
+  EventBridgeTrigger:
+    Type: AWS::Events::Rule
+    Properties: 
+      Description: This rule will trigger the Lambda Function, which in turn will start the Batch Workflow
+      EventBusName: default
+      Name: adl-core-clinical-schedule-Event-trigger-cfn04
+      ScheduleExpression: "cron(20 14 * * ? *)"
+      State: ENABLED
+      Targets: 
+        - Arn: !GetAtt LambdaFunction.Arn
+          Id: ClinicalLambdaTrigger
+  
+  LambdaResourceBasedPolicy:
+    Type: AWS::Lambda::Permission
+    Properties: 
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt LambdaFunction.Arn
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt EventBridgeTrigger.Arn
